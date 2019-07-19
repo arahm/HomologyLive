@@ -1,0 +1,595 @@
+// HomologyLive: C++ code by Alexander D. Rahm (Version 1.0, 28 April 2018),
+// for constructing the Vietoris-Rips complex of a particle configuration
+// (truncated to three dimensions),
+// and computing its rational homology.
+//
+// To install, insert #include "homologyLive.h" into the header of inout.C
+// and call writeOutVietorisRipsComplex("VietorisRipsComplex");
+// from hscnpt.C
+///////////////////////////////////////////////////////////////////////////
+
+#include <iostream>
+#include <fstream>
+#include <math.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
+// libraries needed specifically for HomologyLive:
+#include <list>
+#include <vector>
+#include <tuple>
+using namespace std;
+
+
+std::tuple<std::vector<std::vector<int>>, int>  ConstructEdgeVertexIncidences(std::vector<std::list<int>> adjacencies, int N_r){
+//////////////////////////////////////////////////////////////////////////////
+// Construct the edge-vertex incidence matrix (d_1) from the adjacency matrix:
+//////////////////////////////////////////////////////////////////////////////
+ // int N_r = adjacencies.size();
+  int edgeNumber = 0; 
+  std::vector<std::vector<int>> EdgeVertexIncidence(N_r);
+  for (int i=0; i < N_r; i++){
+    std::list<int> ithAdjacency = adjacencies[i];
+    if(0 < ithAdjacency.size()){
+      std::vector<int> EVIi(N_r);
+      while (0 < ithAdjacency.size() ){
+	  edgeNumber++;
+	  int j = ithAdjacency.front();
+	  EVIi[j] = edgeNumber;
+	  // outFile << edgeNumber << "\t" << i+1 << "\t" << 1  <<  endl;
+	  // outFile << edgeNumber << "\t" << j+1 << "\t" << -1 <<  endl;
+	  ithAdjacency.pop_front();
+      }
+      EdgeVertexIncidence[i] = EVIi;
+    }
+  }
+return std::make_tuple(EdgeVertexIncidence, edgeNumber);
+}
+
+
+
+
+std::vector<std::vector<int>> CheckEdgeVertexIncidences(std::vector<std::vector<int>> EdgeVertexIncidence, int edgeNumber, int N_r){
+//////////////////////////////////////////////////////////////////////////////
+// Construct the edge-vertex incidence matrix (d_1) from the adjacency matrix:
+//////////////////////////////////////////////////////////////////////////////
+ // int N_r = adjacencies.size();
+  int edgeCounter = 0;
+  std::vector<std::vector<int>> TheEdges(edgeNumber+1);
+  for (int i=0; i < N_r; i++){
+     if(0 < EdgeVertexIncidence[i].size()){
+      for(int j = i+1; j < N_r; j++){
+        if(EdgeVertexIncidence[i][j] > 0){
+	  edgeCounter++;
+	  std::vector<int> CurrentEdge(2);
+	  CurrentEdge[0] = i;
+	  CurrentEdge[1] = j;
+	  if(edgeCounter < edgeNumber+1){
+	  TheEdges[edgeCounter] = CurrentEdge;}
+	  if(EdgeVertexIncidence[i][j] != edgeCounter){cerr << "Edge-Vertex disorder at " << i << ", " << j << "\n";}
+	}
+      }
+    }
+  }
+return TheEdges;
+}
+
+
+////////////////////////////////////////////////////////////////////////////////////
+// Construct the edge-vertex incidence matrix (d_1) directly from the rod contacts:
+////////////////////////////////////////////////////////////////////////////////////
+// This is an alternative to computing d_1 from the adjacency matrix.
+//  outfile << edgeNumber << "\t" << N_r << "\t" << "M" <<  endl;
+//  edgeNumber = 0; 
+//  for (int i=0; i<N_r; i++){
+//      for (int j=0; j<i; j++){
+//	contact = checkContactingRods(rods[i], rods[j]);
+//	if (contact){
+//	  edgeNumber++;
+//	  outfile << edgeNumber << "\t" << i+1 << "\t" << 1  <<  endl;
+//	  outfile << edgeNumber << "\t" << j+1 << "\t" << -1 <<  endl;
+//        }
+//      }
+//  }
+//  outfile << 0 << "\t" << 0 << "\t" << 0 <<  endl;
+//  outfile.close();
+////////////////////////////////////////////////////////////////////////////////
+
+
+std::tuple<std::vector<std::vector<std::vector<int>>>, std::list<std::vector<int>>, std::list<std::vector<int>>, int>  ConstructTriangleVertexIncidences(std::vector<std::list<int>> adjacencies, std::vector<std::vector<int>> EdgeVertexIncidence, int N_r, std::vector<std::vector<int>> TheEdges){
+////////////////////////////////////////////////////////////////////////////////////
+// Construct the triangles-edges incidence matrix (d_2) from the adjacency matrix
+// and the edge-vertex incidence matrix:
+////////////////////////////////////////////////////////////////////////////////////
+  int   triangleNumber = 0;
+  std::vector<std::vector<std::vector<int>>> TriangleVertexIncidence(N_r); 
+  std::list<std::vector<int>> Triangles;
+  std::list<std::vector<int>> TriangleBoundaries;
+
+  for (int i=0; i < N_r; i++){
+      if(adjacencies[i].size() > 1){	
+
+	// At vertex number i, abbreviate TriangleVertexIncidence by TVI:
+	std::vector<std::vector<int>> TVIi(N_r); 
+
+	// second vertex j:
+	std::list<int> secondVertices = adjacencies[i];
+	while(secondVertices.size() > 1){
+       	 int j = secondVertices.front();
+	 std::vector<int> TVIij(N_r); 
+
+	 // Third vertex k:
+	 std::list<int> thirdVertices = secondVertices; 
+	 thirdVertices.pop_front();
+	 while(thirdVertices.size() > 0){
+       	  int k = thirdVertices.front();
+       	  if(i < j && j < k){
+	   // Check that vertex k is adjacent to vertex j:
+	   if (EdgeVertexIncidence[j].size() > 0){
+	    if (EdgeVertexIncidence[j][k] > 0){
+
+	  	triangleNumber++;
+		TVIij[k] = triangleNumber;
+
+		std::vector<int> TriangleIndices(3);
+		TriangleIndices[0] = i;
+		TriangleIndices[1] = j;
+		TriangleIndices[2] = k;
+		Triangles.push_back(TriangleIndices);
+
+		std::vector<int> TriangleBoundary(3);
+		TriangleBoundary[0] = EdgeVertexIncidence[i][j];
+		TriangleBoundary[1] = EdgeVertexIncidence[j][k];
+		TriangleBoundary[2] = EdgeVertexIncidence[i][k];
+		if(TheEdges[TriangleBoundary[2]][0] != i || TheEdges[TriangleBoundary[2]][1] != k){
+		cerr << "Error at i,k = " << i << "," << k <<endl; 
+		}
+		TriangleBoundaries.push_back(TriangleBoundary);
+	     }
+	    }
+	   }
+	   thirdVertices.pop_front();
+	  }
+	secondVertices.pop_front();
+	TVIi[j] = TVIij;
+	}
+	TriangleVertexIncidence[i] = TVIi;
+      }
+  }
+return std::make_tuple(TriangleVertexIncidence, Triangles, TriangleBoundaries, triangleNumber);
+}
+
+
+
+std::list<std::vector<int>>  ConstructTetrahedraTrianglesIncidences(std::vector<std::list<int>> adjacencies,  std::vector<std::vector<std::vector<int>>> TriangleVertexIncidence, std::list<std::vector<int>> Triangles){
+////////////////////////////////////////////////////////////////////////////////////
+// Construct the tetrahedra-triangles incidence matrix (d_3) 
+// from the adjacency matrix, the Triangles list
+// and the TriangleVertexIncidence sparse cubus matrix:
+////////////////////////////////////////////////////////////////////////////////////
+  int   tetrahedraNumber = 0;
+  std::list<std::vector<int>> TetrahedraBoundaries;
+
+  while (Triangles.size() > 0){
+
+      std::vector<int> ijk = Triangles.front();
+      int i = ijk[0];
+      int j = ijk[1];
+      int k = ijk[2];
+      if(!(i < j && j < k)){cerr << "Vertex disorder \n";}
+      else{
+	// Potential fourth vertex l:
+	std::list<int> potentialFourthVertices = adjacencies[k];
+	while(potentialFourthVertices.size() > 0){
+       	  int l = potentialFourthVertices.front();
+	  if( l > k ){
+
+	   // Check that vertex l forms a triangle with each edge of the triangle (i,j,k):
+	   if (TriangleVertexIncidence[i].size() > 0 && TriangleVertexIncidence[j].size() > 0){
+	    if (TriangleVertexIncidence[i][j].size() > 0 && TriangleVertexIncidence[j][k].size() > 0 && TriangleVertexIncidence[i][k].size() > 0){
+	     if (TriangleVertexIncidence[i][j][l] > 0 && TriangleVertexIncidence[j][k][l] > 0 && TriangleVertexIncidence[i][k][l] > 0){
+
+	  	tetrahedraNumber++;
+
+		std::vector<int> TetrahedronBoundary(4);
+		TetrahedronBoundary[0] = TriangleVertexIncidence[i][j][l];
+		TetrahedronBoundary[1] = TriangleVertexIncidence[j][k][l];
+		TetrahedronBoundary[2] = TriangleVertexIncidence[i][k][l];
+		TetrahedronBoundary[3] = TriangleVertexIncidence[i][j][k];
+		TetrahedraBoundaries.push_back(TetrahedronBoundary);
+	      }
+	     }
+	    }
+	  }
+	potentialFourthVertices.pop_front();
+	}
+      }
+      Triangles.pop_front();
+  }
+return TetrahedraBoundaries;
+}
+
+
+
+
+void hsc::writeOutVietorisRipsComplex(char name[20]){
+  char d1filename[50];
+  char d2filename[50];
+  char d3filename[50];   
+  char d1sagefilename[50]; 
+  char temp[50];
+//////////////////////////////////////////////////////////////////////
+// Construct the vertex-vertex adjacency matrix from the rod contacts.
+//////////////////////////////////////////////////////////////////////
+  std::vector<std::list<int>> adjacencies(N_r);
+  int edgeNumber = 0; 
+  for (int i=0; i<N_r; i++){
+      std::list<int> ithadjacency; 
+      for (int j=i+1; j<N_r; j++){
+	bool contact = checkContactingRods(rods[i], rods[j]);
+	if (contact){
+	  	edgeNumber++;
+		ithadjacency.push_back(j);
+        }
+      }
+      ithadjacency.sort();
+      adjacencies[i] = ithadjacency;
+  }
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Prepare writing out the edge-vertex incidence matrix, which is the d1-boundary map.
+//////////////////////////////////////////////////////////////////////////////////////
+ std::tuple<std::vector<std::vector<int>>, int> returnedData  = ConstructEdgeVertexIncidences(adjacencies, N_r);
+ std::vector<std::vector<int>> EdgeVertexIncidence = std::get<0>(returnedData);
+ if (edgeNumber != std::get<1>(returnedData) ){cerr << "Edge counting error \n";}
+
+std::vector<std::vector<int>> TheEdges = CheckEdgeVertexIncidences(EdgeVertexIncidence, edgeNumber, N_r);
+
+
+
+  strcpy(d1filename, "d1");
+  strcat(d1filename, "_");
+  strcat(d1filename, name);
+  strcat(d1filename, "_");
+  sprintf(temp,"%.*lf", 5, float(N_r)*Vr/(box->V));
+  strcat(d1filename, temp);
+  strcat(d1filename, "_");
+  sprintf(temp,"%.*lf", 1, AR);
+  strcat(d1filename, temp);
+  strcat(d1filename, "_");
+  sprintf(temp,"%.*lf", 1, A);
+  strcat(d1filename, temp);
+
+  ofstream d1outFile(d1filename, ios::out);
+
+/////////////////////////////////////////////////////////////////////////////////////////
+// Check that the edge-vertex incidence matrix is well sorted. This check can be deleted. 
+  for (int n=1; n < TheEdges.size(); n++){
+    int i = TheEdges[n][0];
+    int j = TheEdges[n][1];
+    if(EdgeVertexIncidence[i].size() > 0){
+      if(EdgeVertexIncidence[i][j] != n){
+	 d1outFile << "Error: edge " << n << " with vertices " << i << "," << j
+	  << " is indexed as " << EdgeVertexIncidence[i][j] << endl;     
+      }
+    }else{
+    	 d1outFile << "Error: edge " << n << " with vertices " << i << "," << j
+	  << " is not indexed." << endl;  
+    }
+  }
+  for (int i=0; i < N_r; i++){
+    if(0 < EdgeVertexIncidence[i].size()){
+      for (int j = i+1; j < N_r; j++){
+        int n = EdgeVertexIncidence[i][j];
+	if( n > 0){
+	  if(!(TheEdges[n][0] == i && TheEdges[n][1] == j)){
+	    d1outFile << "Error: edge " << n << " with vertices " << i << "," << j
+	    << " is supposed to have vertices " << TheEdges[n][0] << " and " <<
+	    TheEdges[n][1] << endl;   
+	  }
+	}
+      }
+    }
+  }
+// end check. Remove this check or deactivate it.
+//////////////////////////////////////////////////
+
+  d1outFile << "#NumberR (number of rods) = " << N_r << endl;
+  d1outFile << "#L/D " << AR << endl;
+  d1outFile << "#DensityR " << float(N_r)*Vr/(box->V) << endl;
+  d1outFile << "#Boxx " << box->x[0] << endl;
+  d1outFile << "#Boxy " << box->x[1] << endl;
+  d1outFile << "#Boxz " << box->x[2] << endl;
+  d1outFile << "#Edge-vertex incidence matrix of the edges connecting the Rods in contact: " << endl;
+
+  // Now we can write out the edge-vertex incidence matrix, which is the d1-boundary map.
+  d1outFile << edgeNumber << "\t" << N_r << "\t" << "M" <<  endl;   
+  /* formerly:
+  for (int i=0; i < N_r; i++){
+    if(0 < EdgeVertexIncidence[i].size()){
+	for (int j = i+1; j < N_r; j++){
+	 if(EdgeVertexIncidence[i][j] > 0){
+	  d1outFile << EdgeVertexIncidence[i][j] << "\t" << i+1 
+	  					<< "\t" << -1  <<  endl;
+	  d1outFile << EdgeVertexIncidence[i][j] << "\t" << j+1 
+	  					<< "\t" << 1 <<  endl;
+	}
+      }
+    }
+  }. Now: */
+  for (int n=1; n < edgeNumber+1; n++){
+	  d1outFile << n << "\t" << TheEdges[n][0]+1 << "\t" << -1 << endl;
+	  d1outFile << n << "\t" << TheEdges[n][1]+1 << "\t" << 1 <<  endl;
+  }
+  d1outFile << 0 << "\t" << 0 << "\t" << 0 <<  endl;
+  d1outFile.close();
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+// Write out the triangles-edges incidence matrix (d_2) we obtain from the adjacency matrix:
+//////////////////////////////////////////////////////////////////////////////////////////////
+  std::tuple<std::vector<std::vector<std::vector<int>>>, std::list<std::vector<int>>, std::list<std::vector<int>>, int> d2data = ConstructTriangleVertexIncidences(adjacencies, EdgeVertexIncidence, N_r, TheEdges);
+
+  std::vector<std::vector<std::vector<int>>> TriangleVertexIncidence = std::get<0>(d2data);  
+  std::list< std::vector<int> > Triangles = std::get<1>(d2data);
+  std::list< std::vector<int> > TriangleBoundaries = std::get<2>(d2data);
+  int   triangleNumber = std::get<3>(d2data);
+
+  // The following copy of TriangleBoundaries is made only for the below check in Pari/GP.
+  // When de-activating data export for the check, 
+  // please think of deactivating also the following line.
+  std::list< std::vector<int> > PariCheckTriangleBoundaries = TriangleBoundaries;
+
+  strcpy(d2filename, "d2");
+  strcat(d2filename, "_");
+  strcat(d2filename, name);
+  strcat(d2filename, "_");
+  sprintf(temp,"%.*lf", 5, float(N_r)*Vr/(box->V));
+  strcat(d2filename, temp);
+  strcat(d2filename, "_");
+  sprintf(temp,"%.*lf", 1, AR);
+  strcat(d2filename, temp);
+  strcat(d2filename, "_");
+  sprintf(temp,"%.*lf", 1, A);
+  strcat(d2filename, temp);
+
+  ofstream d2outFile(d2filename, ios::out);
+
+  d2outFile << "#NumberR (number of rods) = " << N_r << endl;
+  d2outFile << "#L/D " << AR << endl;
+  d2outFile << "#DensityR " << float(N_r)*Vr/(box->V) << endl;
+  d2outFile << "#Boxx " << box->x[0] << endl;
+  d2outFile << "#Boxy " << box->x[1] << endl;
+  d2outFile << "#Boxz " << box->x[2] << endl;
+  d2outFile << "#Number of edges = " << edgeNumber << endl;
+  d2outFile << "#Number of triangles = " << triangleNumber << endl;
+  d2outFile << "#Triangles-Edges incidence matrix formed by the Rods in contact: " << endl;
+
+  d2outFile << triangleNumber << "\t" << edgeNumber << "\t" << "M" <<  endl;
+  triangleNumber = 0;
+  while (TriangleBoundaries.size() > 0){
+	  triangleNumber++;
+	  int ij = TriangleBoundaries.front()[0];
+	  int jk = TriangleBoundaries.front()[1];
+	  int ik = TriangleBoundaries.front()[2];
+	  	  
+          //////////////////////////////////////////	  	  
+	  // Check that edge ik is well implemented.
+	  int i = TheEdges[ik][0];
+	  int k = TheEdges[ik][1];
+
+	  if( EdgeVertexIncidence[i][k] != ik){
+		d2outFile << "Error at i,k = " << i << "," << k <<endl; 
+		}  
+          if( TheEdges[jk][1] != k){
+		d2outFile << "Error at k = " << k <<endl; 
+		} 	  
+	  // Check that edge jk is well implemented.
+	  int j = TheEdges[jk][0];
+	      k = TheEdges[jk][1];
+
+	  if( EdgeVertexIncidence[j][k] != jk){
+		d2outFile << "Error at j,k = " << j << "," << k <<endl; 
+		}
+	  // Check that the triangle ijk is well implemented.
+	  if( TriangleVertexIncidence[i][j][k] != triangleNumber){
+		d2outFile << "Error at i,j,k = " 
+			<< i << "," << j << "," << k <<endl; 
+		}
+	  //////////////////////////////////////////
+		
+	  d2outFile << triangleNumber << "\t" << ij << "\t" << 1  <<  endl;
+	  d2outFile << triangleNumber << "\t" << jk << "\t" << 1  <<  endl;
+	  d2outFile << triangleNumber << "\t" << ik << "\t" <<-1  <<  endl;
+	  
+	  TriangleBoundaries.pop_front();
+  }
+  d2outFile << 0 << "\t" << 0 << "\t" << 0 <<  endl;
+  d2outFile.close();
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+// Write out the tetrahedra-triangles incidence matrix (d_3) we obtain from the adjacency matrix:
+/////////////////////////////////////////////////////////////////////////////////////////////////
+  std::list<std::vector<int>> TetrahedraBoundaries = ConstructTetrahedraTrianglesIncidences(adjacencies, TriangleVertexIncidence, Triangles);
+  int   tetrahedraNumber = TetrahedraBoundaries.size();
+
+  // The following copy of TriangleBoundaries is made only for the below check in Pari/GP.
+  // When de-activating data export for the check, 
+  // please think of deactivating also the following line.
+  std::list< std::vector<int> > PariCheckTetrahedraBoundaries = TetrahedraBoundaries;
+
+  strcpy(d3filename, "d3");
+  strcat(d3filename, "_");
+  strcat(d3filename, name);
+  strcat(d3filename, "_");
+  sprintf(temp,"%.*lf", 5, float(N_r)*Vr/(box->V));
+  strcat(d3filename, temp);
+  strcat(d3filename, "_");
+  sprintf(temp,"%.*lf", 1, AR);
+  strcat(d3filename, temp);
+  strcat(d3filename, "_");
+  sprintf(temp,"%.*lf", 1, A);
+  strcat(d3filename, temp);
+
+  ofstream d3outFile(d3filename, ios::out);
+
+  d3outFile << "#N_r (number of rods) = " << N_r << endl;
+  d3outFile << "#L/D " << AR << endl;
+  d3outFile << "#DensityR " << float(N_r)*Vr/(box->V) << endl;
+  d3outFile << "#Boxx " << box->x[0] << endl;
+  d3outFile << "#Boxy " << box->x[1] << endl;
+  d3outFile << "#Boxz " << box->x[2] << endl;
+  d3outFile << "#Number of edges = " << edgeNumber << endl;
+  d3outFile << "#Number of triangles = " << triangleNumber << endl;
+  d3outFile << "#Number of tetrahedra = " << tetrahedraNumber << endl;
+  d3outFile << "#Tetrahedra-triangles incidence matrix formed by the Rods in contact: " << endl;
+
+  d3outFile << tetrahedraNumber << "\t" << triangleNumber << "\t" << "M" <<  endl;
+  tetrahedraNumber = 0;
+  while (TetrahedraBoundaries.size() > 0){
+	  tetrahedraNumber++;
+	  d3outFile << tetrahedraNumber << "\t" << TetrahedraBoundaries.front()[0] << "\t" << 1  <<  endl;
+	  d3outFile << tetrahedraNumber << "\t" << TetrahedraBoundaries.front()[1] << "\t" << 1  <<  endl;
+	  d3outFile << tetrahedraNumber << "\t" << TetrahedraBoundaries.front()[2] << "\t" <<-1  <<  endl;
+	  d3outFile << tetrahedraNumber << "\t" << TetrahedraBoundaries.front()[3] << "\t" <<-1  <<  endl;
+	  TetrahedraBoundaries.pop_front();
+  }
+  d3outFile << 0 << "\t" << 0 << "\t" << 0 <<  endl;
+  d3outFile.close();
+  
+///////////////////////////////////////////////////////
+// Write an address file pointing to the matrix files,
+/// and insert it into a shell script for being treated.   
+////////////////////////////////////////////////////////
+  
+  char configurationname[50];
+  char configurationFilename[60];  
+  strcpy(configurationname, name);
+  strcat(configurationname, "_");
+  sprintf(temp,"%.*lf", 5, float(N_r)*Vr/(box->V));
+  strcat(configurationname, temp);
+  strcat(configurationname, "_");
+  sprintf(temp,"%.*lf", 1, AR);
+  strcat(configurationname, temp);
+  strcat(configurationname, "_");
+  sprintf(temp,"%.*lf", 1, A);
+  strcat(configurationname, temp);
+  strcpy(configurationFilename, "addressFile_");
+  strcat(configurationFilename,configurationname);
+
+  ofstream addressFile(configurationFilename, ios::out);
+  addressFile << configurationname << endl;
+  addressFile << d1filename <<  endl;
+  addressFile << d2filename <<  endl;
+  addressFile << d3filename <<  endl;
+  addressFile.close();
+
+  ofstream shellFile("getBettiNumbers.sh", std::ios_base::app | std::ios_base::out);
+  shellFile << "./rationalHomology.o " << configurationFilename << endl;
+  shellFile.close();
+
+//////////////////////////////////////////////////////////////////////////////////////
+// Write out the differential matrices in PARI/GP format for a correctness check.
+// This can be skipped by de-actvating the remaining source code in this procedure.
+///////////////////////////////////////////////////////////////////////////////////////
+
+  ofstream d1pariFile("d1pari.gp", ios::out);
+  d1pariFile << "d1 = matrix(" << edgeNumber << "," << N_r << ", X, Y, 0);\n" << endl;
+
+  // Now we can write out the edge-vertex incidence matrix, which is the d1-boundary map.  
+  /* Formerly: 
+  for (int i=0; i < N_r; i++){
+    if(0 < EdgeVertexIncidence[i].size()){
+	for (int j = i+1; j < N_r; j++){
+	 if(EdgeVertexIncidence[i][j] > 0){
+	  d1pariFile << "d1[" << EdgeVertexIncidence[i][j] << "," << i+1 << "] = -1;\n"  <<  endl;
+	  d1pariFile << "d1[" << EdgeVertexIncidence[i][j] << "," << j+1 << "] = +1;\n"  <<  endl;
+	 }
+        }
+    }
+  }. Now: */
+  for (int n=1; n < edgeNumber+1; n++){
+    d1pariFile << "d1[" << n << "," << TheEdges[n][0]+1  << "] = -1;" << endl;
+    d1pariFile << "d1[" << n << "," << TheEdges[n][1]+1  << "] = 1;" <<  endl;
+  }
+  d1pariFile.close();
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+// Write out the triangles-edges incidence matrix (d_2) into a PARI/GP matrix:
+//////////////////////////////////////////////////////////////////////////////////////////////
+ 
+  ofstream d2pariFile("d2pari.gp", ios::out);
+
+  d2pariFile << "d2 = matrix(" << triangleNumber << "," << edgeNumber << ", X, Y, 0);\n" << endl;
+  
+  triangleNumber = 0;
+  while (PariCheckTriangleBoundaries.size() > 0){
+	  triangleNumber++;
+	  int ij = PariCheckTriangleBoundaries.front()[0];
+	  int jk = PariCheckTriangleBoundaries.front()[1];
+	  int ik = PariCheckTriangleBoundaries.front()[2];
+	  d2pariFile << "d2[" << triangleNumber << "," << ij << "] = 1;\n"  <<  endl;
+	  d2pariFile << "d2[" << triangleNumber << "," << jk << "] = 1;\n"  <<  endl;
+	  d2pariFile << "d2[" << triangleNumber << "," << ik << "] = -1;\n" <<  endl;
+	  
+	  //////////////////////////////////////////	  	  
+	  // Check that edge ik is well implemented.
+	  int i = TheEdges[ik][0];
+	  int k =  TheEdges[ik][1];
+
+	  if( EdgeVertexIncidence[i][k] != ik){
+		d2pariFile << "Error at i,k = " << i << "," << k <<endl; 
+		}
+	  //////////////////////////////////////////	
+	  
+	  PariCheckTriangleBoundaries.pop_front();
+  }
+  d2pariFile.close();
+
+/////////////////////////////////////////////////////////////////////////////////////////////////
+// Write out the tetrahedra-triangles incidence matrix (d_3) we obtain from the adjacency matrix:
+/////////////////////////////////////////////////////////////////////////////////////////////////
+
+  ofstream d3pariFile("d3pari.gp", ios::out);
+
+  d3pariFile << "d3 = matrix(" << tetrahedraNumber << "," << triangleNumber << ", X, Y, 0);\n" << endl;
+
+  tetrahedraNumber = 0;
+  while (PariCheckTetrahedraBoundaries.size() > 0){
+	  tetrahedraNumber++;
+	  d3pariFile << "d3[" << tetrahedraNumber << "," << PariCheckTetrahedraBoundaries.front()[0] << "] = 1; "  <<  endl;
+	  d3pariFile << "d3[" << tetrahedraNumber << "," << PariCheckTetrahedraBoundaries.front()[1] << "] = 1; "  <<  endl;
+	  d3pariFile << "d3[" << tetrahedraNumber << "," << PariCheckTetrahedraBoundaries.front()[2] << "] =-1; "  <<  endl;
+	  d3pariFile << "d3[" << tetrahedraNumber << "," << PariCheckTetrahedraBoundaries.front()[3] << "] =-1; "  <<  endl;
+	  PariCheckTetrahedraBoundaries.pop_front();
+  }
+  d3pariFile.close();
+  
+//////////////////////////////////////////////////////////////////////////////////////
+// Write out the edges in SAGE format for a correctness check.
+// This can be skipped by de-actvating the remaining source code in this procedure.
+///////////////////////////////////////////////////////////////////////////////////////
+
+  strcpy(d1sagefilename, "edges_for_sage");
+  strcat(d1sagefilename, "_");
+  strcat(d1sagefilename, name);
+  strcat(d1sagefilename, "_");
+  sprintf(temp,"%.*lf", 5, float(N_r)*Vr/(box->V));
+  strcat(d1sagefilename, temp);
+  strcat(d1sagefilename, "_");
+  sprintf(temp,"%.*lf", 1, AR);
+  strcat(d1sagefilename, temp);
+  strcat(d1sagefilename, "_");
+  sprintf(temp,"%.*lf", 1, A);
+  strcat(d1sagefilename, temp);
+  
+  ofstream d1sageFile(d1sagefilename, ios::out);
+  d1sageFile << "g = Graph([" << endl;
+
+  for (int n=1; n < edgeNumber+1; n++){
+    d1sageFile << "(" << TheEdges[n][0]+1  << "," << TheEdges[n][1]+1  << ")," <<  endl;
+  }
+  d1sageFile << "])" << endl;
+  d1sageFile.close();  
+}
+
