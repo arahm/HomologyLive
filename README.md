@@ -11,7 +11,7 @@ There are currently three branches, each one specialized to a specific applicati
 
 * Protein-Protein Interaction Networks in Genomics
 
-* Gene occurrency in cells
+* Gene occurrence in cells
 
 Publications related to these applications can (respectively, will) be found on Alexander D. Rahm's homepage:
 
