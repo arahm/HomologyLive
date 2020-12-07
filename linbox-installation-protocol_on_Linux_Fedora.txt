@@ -1,0 +1,181 @@
+After installing Linux Fedora, and selecting the software package "C development" in its graphical installation surface, many of the below installation steps for LinBox did yield the answer "already installed".
+However, you should go through all of these steps in order to prevent bad surprises. 
+
+## Enter super-user mode:
+[rahm@linux-pf0087 ~]$ su
+Password: 
+[root@linux-pf0087 rahm]# yum install gcc
+Last metadata expiration check: 0:08:59 ago on Tue 15 Jan 2019 07:47:33 AM EST.
+Package gcc-8.2.1-6.fc29.x86_64 is already installed.
+Dependencies resolved.
+Nothing to do.
+Complete!
+[root@linux-pf0087 rahm]# yum install git-core
+Last metadata expiration check: 0:09:13 ago on Tue 15 Jan 2019 07:47:33 AM EST.
+Package git-core-2.20.1-1.fc29.x86_64 is already installed.
+Dependencies resolved.
+Nothing to do.
+Complete!
+[root@linux-pf0087 rahm]# ym install openblas
+bash: ym: command not found...
+[root@linux-pf0087 rahm]# yum install openblas
+Last metadata expiration check: 0:09:28 ago on Tue 15 Jan 2019 07:47:33 AM EST.
+Package openblas-0.3.5-1.fc29.x86_64 is already installed.
+Dependencies resolved.
+Nothing to do.
+Complete!
+
+[root@linux-pf0087 rahm]# yum install libstdc++-devel
+Last metadata expiration check: 0:10:00 ago on Tue 15 Jan 2019 07:47:33 AM EST.
+Package libstdc++-devel-8.2.1-6.fc29.x86_64 is already installed.
+Dependencies resolved.
+Nothing to do.
+Complete!
+
+[root@linux-pf0087 rahm]# yum install gcc-c++
+Last metadata expiration check: 0:10:17 ago on Tue 15 Jan 2019 07:47:33 AM EST.
+Package gcc-c++-8.2.1-6.fc29.x86_64 is already installed.
+Dependencies resolved.
+Nothing to do.
+Complete!
+[root@linux-pf0087 rahm]# yum install lzip
+Last metadata expiration check: 0:12:27 ago on Tue 15 Jan 2019 07:47:33 AM EST.
+[...]
+Total download size: 101 k
+Installed size: 201 k
+Is this ok [y/N]: y
+[...]
+Importing GPG key 0x429476B4:
+ Userid     : "Fedora 29 (29) <fedora-29@fedoraproject.org>"
+ Fingerprint: 5A03 B4DD 8254 ECA0 2FDA 1637 A20A A56B 4294 76B4
+ From       : /etc/pki/rpm-gpg/RPM-GPG-KEY-fedora-29-x86_64
+Is this ok [y/N]: y
+[...]
+Installed:
+  lzip-1.20-3.fc29.x86_64                                                       
+
+[root@linux-pf0087 rahm]# yum install m4
+Last metadata expiration check: 0:13:03 ago on Tue 15 Jan 2019 07:47:33 AM EST.
+Package m4-1.4.18-9.fc29.x86_64 is already installed.
+Dependencies resolved.
+Nothing to do.
+Complete!
+
+[root@linux-pf0087 rahm]# yum install pkg-config
+Last metadata expiration check: 0:14:12 ago on Tue 15 Jan 2019 07:47:33 AM EST.
+Package pkgconf-pkg-config-1.5.3-2.fc29.x86_64 is already installed.
+Dependencies resolved.
+Nothing to do.
+Complete!
+
+
+###########################################################
+## Note that gmp has the status "already installed", 
+## and "yum install givaro" seems to work,
+## but then gmp and givaro cannot be found with pkg-config. 
+## So they have to be installed manually:
+###########################################################
+
+cd /usr/share/
+[root@ubiron share]# wget https://gmplib.org/download/gmp/gmp-6.1.2.tar.lz
+[root@ubiron share]# lzip -d gmp-6.1.2.tar.lz 
+[root@ubiron share]# tar -xvf gmp-6.1.2.tar 
+[root@ubiron share]# cd gmp-6.1.2/
+[root@ubiron gmp-6.1.2]# ./configure --enable-cxx
+[root@ubiron gmp-6.1.2]# make; make check; make install
+cd ..
+## Download givaro-4.0.4.tar.gz from the Releases page of https://github.com/linbox-team/givaro and copy it to the current folder /usr/share/
+[root@ubiron share]# tar -xzvf givaro-4.0.4.tar.gz 
+[root@ubiron share]# cd givaro-4.0.4/
+[root@ubiron givaro-4.0.4]# /configure
+[root@ubiron givaro-4.0.4]# make install
+[root@ubiron givaro-4.0.4]# cp givaro.pc /usr/share/pkgconfig/
+
+##################################################
+## Now givaro should be found by pkg-config:
+##################################################
+[root@ubiron givaro-4.0.4]# pkg-config --cflags  givaro
+-I/usr/local/include -fabi-version=6 
+
+[root@ubiron givaro-4.0.4]# yum install openblas-devel.x86_64
+                                                                                                                                            [...]
+Total download size: 38 M
+Installed size: 324 M
+Is this ok [y/N]: y
+[...]
+Installed:
+  openblas-devel-0.3.5-1.fc29.x86_64        openblas-openmp-0.3.5-1.fc29.x86_64     openblas-openmp64-0.3.5-1.fc29.x86_64     openblas-openmp64_-0.3.5-1.fc29.x86_64     openblas-serial64-0.3.5-1.fc29.x86_64   
+  openblas-serial64_-0.3.5-1.fc29.x86_64    openblas-threads-0.3.5-1.fc29.x86_64    openblas-threads64-0.3.5-1.fc29.x86_64    openblas-threads64_-0.3.5-1.fc29.x86_64    openblas-srpm-macros-2-4.fc29.noarch    
+
+Complete!
+[root@ubiron givaro-4.0.4]# cd ..
+## Download fflas-ffpack-2.3.2.tar.gz from the Releases page of https://github.com/linbox-team/fflas-ffpack and copy it to the current folder /usr/share/
+[root@ubiron share]# tar -xzvf fflas-ffpack-2.3.2.tar.gz 
+[root@ubiron share]# cd fflas-ffpack-2.3.2/
+[root@ubiron fflas-ffpack-2.3.2]# ./configure --with-blas-libs="-lopenblas"
+[root@ubiron fflas-ffpack-2.3.2]# make; make install
+[root@ubiron fflas-ffpack-2.3.2]# cp fflas-ffpack.pc /usr/share/pkgconfig/
+
+#####################################################
+## Now fflas-ffpack should be found by pkg-config:
+##################################################
+[root@ubiron fflas-ffpack-2.3.2]# pkg-config --cflags fflas-ffpack
+-I/usr/local/include -fopenmp -fabi-version=6 
+
+## Download linbox-1.5.2.tar.gz from the Releases page of https://github.com/linbox-team/linbox and move it to the current folder /usr/share/
+[root@ubiron share]# tar -xzvf linbox-1.5.2.tar.gz 
+[root@ubiron share]# cd linbox-1.5.2/
+
+
+##############################################################################
+## There is a bug in linbox-1.5.2 which needs to be fixed in the following way
+## see also the bug report on https://github.com/linbox-team/linbox/issues/116
+## - overwrite the source file blas-transposed-matrix.h by fixed version:
+##############################################################################
+cd /usr/share/linbox-1.5.2/linbox/matrix/densematrix/
+## Remove the broken version of blas-transposed-matrix.h :
+rm blas-transposed-matrix.h
+## Download the fixed version of blas-transposed-matrix.h :
+wget https://raw.githubusercontent.com/linbox-team/linbox/56be8673613fff87fb2329f71bceb0c793c00b82/linbox/matrix/densematrix/blas-transposed-matrix.h
+
+
+## Compile linbox:
+## go back to the top level of the linbox directory:
+cd /usr/share/linbox-1.5.2/
+[root@ubiron linbox-1.5.2]# ./configure 
+[root@ubiron linbox-1.5.2]# make
+[root@ubiron linbox-1.5.2]# make install
+[root@ubiron linbox-1.5.2]# cp linbox.pc /usr/share/pkgconfig/
+
+#####################################################
+## Now linbox should be found by pkg-config:
+##################################################
+[root@ubiron linbox-1.5.2]# pkg-config --cflags --libs linbox 
+-O2 -Wall -g -DNDEBUG -U_LB_DEBUG -DDISABLE_COMMENTATOR -I/usr/local/include -fopenmp -fabi-version=6 -L/usr/local/lib -llinbox -lmpfr -fopenmp -lopenblas -lgivaro -lgmp -lgmpxx 
+
+## Now for compiling a C++ program containing linbox commands, copy and paste the (above, but you need the one from your computer) output line of "pkg-config --cflags --libs linbox"
+
+#########################################################
+## Test that linbox works:
+#########################################################
+
+## Exit super-user mode:
+exit
+## Go to the directory where you have downloaded BettiNumbersCalculator-onlyBetti1.c. 
+## Then run the following command 
+## (where after ".o" you paste the output of "pkg-config --cflags --libs linbox"):
+[rahm@ubiron HomologyLive]$ g++ BettiNumbersCalculator-onlyBetti1.c -o BettiNumbersCalculator-onlyBetti1.o -O2 -Wall -g -DNDEBUG -U_LB_DEBUG -DDISABLE_COMMENTATOR -I/usr/local/include -fopenmp -fabi-version=6 -L/usr/local/lib -llinbox -lmpfr -fopenmp -lopenblas -lgivaro -lgmp -lgmpxx 
+## Place the linked .o file into the same directory where you have downloaded 
+## data_4146.csv_address998.txt, data_4146.csv_d1LinBox998.txt and data_4146.csv_d2LinBox998.txt
+## Go there and run
+./BettiNumbersCalculator-onlyBetti1.o data_4146.csv_address998.txt
+## This should produce the following output.
+[rahm@ubiron HomologyLive]$ ./BettiNumbersCalculator-onlyBetti1.o data_4146.csv_address998.txt
+At threshold 998, the Vietoris-Rips complex truncated to three dimensions has the following cell numbers and topological invariants:
+There are 8507 triangles, 2752 edges and 1356 vertices.
+
+ One-dimensional loops: 389
+ Connected components ("clusters"): 304
+Computing the ranks of the differential matrices took 0.136392s (0.123493 cpu) [1] time for this Vietoris-Rips complex.
+
+

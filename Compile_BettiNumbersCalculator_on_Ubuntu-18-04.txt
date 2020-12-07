@@ -1,0 +1,149 @@
+		Instructions to compile Linbox from sources on Ubuntu 18.04
+
+1) Download Linbox source code from git repository master branch
+
+	cd /usr/share
+	sudo su
+	#wget https://github.com/linbox-team/linbox/archive/v1.6.3.tar.gz
+	#tar -xvf v1.6.3.tar.gz
+
+2) Compile dependencies and the Linbox code from source and install
+
+	sudo apt-get update
+	sudo apt-get install g++ m4 zlib1g-dev make p7zip
+	sudo apt-get install lzip	
+	sudo apt-get install pkg-config libblas-dev liblapack-dev gfortran autoconf libtool
+
+   -->Download gmp and compile from sources
+	wget https://gmplib.org/download/gmp/gmp-6.2.0.tar.lz
+	tar --lzip -xvf gmp-6.2.0.tar.lz
+	cd gmp-6.2.0
+	./configure --enable-cxx
+	make
+	make check
+	sudo make install
+	cd ..
+
+   -->Download givaro and compile from sources
+	#wget https://github.com/linbox-team/givaro/archive/v4.1.1.tar.gz
+	#tar -xvf v4.1.1.tar.gz
+	#cd givaro-4.1.1
+	#./autogen.sh
+	#./configure --with-pic
+	#make
+	#sudo make install
+	#make examples
+	cd ..
+
+	Note: The --with-pic configure option is optional to build a shared library that the linboxing kernel module can use.
+
+   -->Download OpenBLAS and compile from sources
+	#git clone https://github.com/xianyi/OpenBLAS.git
+	#cd OpenBLAS
+	#make 
+	make PREFIX=/usr/share/OpenBLAS install
+	#sudo make install
+	#cp /opt/OpenBLAS/lib/pkgconfig/openblas.pc /usr/local/lib/pkgconfig/
+	cd ..
+	
+   -->Download fflas-ffpack and compile from sources
+	#wget https://github.com/linbox-team/fflas-ffpack/archive/2.4.3.tar.gz
+	#tar -xvf 2.4.3.tar.gz
+	#cd fflas-ffpack-2.4.3
+	#PKG_CONFIG_PATH=${PKG_CONFIG_PATH}:/usr/local/lib/pkgconfig
+	#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/lib
+/* Execute */
+	#./autogen.sh --with-givaro=/usr/local/lib/pkgconfig
+/* but ignore the warning that BLAS is not found! This issue gets compensated by the specification of the OpenBLAS locations in the following command. */
+	#./configure --with-blas-libs="-L/opt/OpenBLAS/lib -lopenblas" --with-blas-cflags="-I/opt/OpenBLAS/include" --with-givaro=/usr/local/lib/pkgconfig
+	#make
+	#sudo make install
+	#make examples
+	cd ..
+
+   -->Compile linbox-1.6.3 from sources
+	#cd linbox-1.6.3
+	#./autogen.sh --with-fflas-ffpack=/usr/local/lib/pkgconfig --with-givaro=/usr/local/lib/pkgconfig
+	#./configure --with-fflas-ffpack=/usr/local/lib/pkgconfig --with-givaro=/usr/local/lib/pkgconfig
+        #make
+	#make check
+        #sudo make install ----> optional
+	
+
+3) Compile the Betti Numbers Calculator
+
+g++ -DHAVE_CONFIG_H -I. -I.. -I.. -O2 -Wall -g -DNDEBUG -U_LB_DEBUG -DDISABLE_COMMENTATOR -fPIC -shared -I/usr/local/include -I/opt/OpenBLAS/include -fopenmp -fabi-version=6 -mmmx -mpopcnt -msse -msse2 -msse3 -msse4.1 -msse4.2 -mavx -mavx2 -mfma -mbmi -mbmi2 -mfpmath=sse -std=gnu++11 -c BettiNumbersCalculator_onlyBetti1.c
+
+g++ -o BettiNumbersCalculator-onlyBetti1.o BettiNumbersCalculator_onlyBetti1.o -L/usr/local/lib -L/opt/OpenBLAS/lib -L/usr/local/lib -fopenmp -lopenblas -lgivaro -lgmp -lgmpxx -llinbox
+
+/* Note that the above command work, as ordinary user, on the SoBT Walter server and produce an operational executable file BettiNumbersCalculator-onlyBetti1.o
+On Alexander's office machine, compilation is done in the superuser mode, as follows. On the SoBT Walter server, skip the following steps and proceed with Section 4. 
+Note further that most of the above compilation flags are obtained by going to the linbox examples folder, sudo make clean, cd .., sudo make examples. The additional compilation flags (from the LinBox forum) are
+-fPIC -shared -mmmx -mpopcnt -mbmi -mbmi2 -mfpmath=sse -std=gnu++11
+*/
+	
+	#cd linbox-1.6.3
+	 wget gaati.org/rahm/BettiNumbersCalculator-onlyBetti1.c
+	sudo mv BettiNumbersCalculator-onlyBetti1.c examples/genprime.C
+/* Option A: Compile as one of the built-in examples (this compiles all built-in examples and takes some time): */
+	#make examples
+
+	cd examples/ 
+/* Option B: Compile only the example genprime.C which has been overwritten by BettiNumbersCalculator_onlyBetti1.C */ 
+	sudo g++ -DHAVE_CONFIG_H -I. -I.. -I.. -O2 -Wall -g -DNDEBUG -U_LB_DEBUG -DDISABLE_COMMENTATOR -fopenmp -fabi-version=6 -I/usr/local/include -I//opt/OpenBLAS/include -I/usr/local/include -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mavx -mavx2 -mfma -MT genprime.o -MD -MP -MF .deps/genprime.Tpo -c -o genprime.o genprime.C
+	
+	sudo mv -f .deps/genprime.Tpo .deps/genprime.Po
+
+/* Obtain the compilation flags with the following command: */
+	sudo /bin/bash ../libtool --tag=CXX --mode=link g++ -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mavx -mavx2 -mfma -o genprime genprime.o -L/opt/OpenBLAS/lib -L/usr/local/lib -fopenmp -lopenblas -lgivaro -lgmp -lgmpxx ../linbox/liblinbox.la
+
+/* Using the compilation flags returned, the linker command is the following under Ubuntu 18.04: */
+	sudo g++ -msse -msse2 -msse3 -mssse3 -msse4.1 -msse4.2 -mavx -mavx2 -mfma -o .libs/genprime genprime.o -fopenmp -L/opt/OpenBLAS/lib -L/usr/local/lib -lopenblas /usr/local/lib/libgivaro.so -lgmp -lgmpxx ../linbox/.libs/liblinbox.so -fopenmp
+
+	cp /usr/share/linbox-1.6.3/examples/.libs/genprime ./BettiNumbersCalculator-onlyBetti1.o
+	/* exit superuser mode */
+	
+
+
+
+
+
+4) Run the example
+	
+	cd /home/alexander/test
+	wget gaati.org/rahm/data_4127_with_duplicates.csv_address900.txt
+	wget gaati.org/rahm/data_4127_with_duplicates.csv_d1LinBox900.txt
+	wget gaati.org/rahm/data_4127_with_duplicates.csv_d2LinBox900.txt
+	./BettiNumbersCalculator-onlyBetti1.o data_4127_with_duplicates.csv_address900.txt
+
+ 
+Output should be something like:
+	
+	At threshold 900, the Vietoris-Rips complex truncated to three dimensions has the following cell numbers and topological invariants:
+There are 14233 triangles, 12499 edges and 3234 vertices.
+
+ One-dimensional loops: 5814
+ Connected components ("clusters"): 233
+Computing the ranks of the differential matrices took 0.896383s (0.856868 cpu) [1] time for this Vietoris-Rips complex.
+
+
+
+
+
+5)  Optional make targets:
+	
+	Check LinBox is up and running.
+	#cd linbox-1.6.3
+	#make check
+	
+	Perform additionnal checks to ensure LinBox is completely sane.
+	#cd linbox-1.6.3
+	#make fullcheck
+	
+	Benchmarks some LinBox functionnalities. 
+	#cd linbox-1.6.3
+	#make benchmarks
+
+	Ref: https://www.gap-system.org/Manuals/pkg/linboxing/doc/chap2.html
+	     https://linalg.org/linbox-html/install-dist.html
+
