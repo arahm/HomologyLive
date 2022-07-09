@@ -15,4 +15,4 @@ There are currently three branches, each one specialized to a specific applicati
 
 Publications related to these applications can (respectively, will) be found on Alexander D. Rahm's homepage:
 
-http://math.uni.lu/~rahm/
+https://gaati.org/rahm/
